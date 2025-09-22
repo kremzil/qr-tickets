@@ -1,105 +1,131 @@
-.qr-ticket-wrapper {
-    max-width: 640px;
-    margin: 2rem auto;
-    padding: 2rem;
-    background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-    text-align: center;
+/* === QR Ticket (Ultralight Dark) === */
+.qr-ticket-wrapper{
+  max-width:560px;
+  margin:12px auto;
+  padding:16px;
+  background:var(--card);
+  color:var(--text);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  text-align:center;
+}
+@media (min-width:480px){
+  .qr-ticket-wrapper{ padding:20px; }
 }
 
-.qr-ticket-title {
-    margin-bottom: 0.5rem;
-    font-size: 2rem;
+.qr-ticket-title{
+  margin:0 0 .5rem 0;
+  font-size:1.25rem;
+}
+@media (min-width:480px){
+  .qr-ticket-title{ font-size:1.5rem; }
 }
 
-.qr-ticket-meta {
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
-    color: #666666;
-    margin-bottom: 1.5rem;
+.qr-ticket-meta{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:.5rem 1rem;
+  color:var(--muted);
+  margin-bottom:1rem;
+}
+.qr-ticket-type{
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+  color:var(--text);
 }
 
-.qr-ticket-type {
-    font-weight: 600;
-    text-transform: uppercase;
+/* ВАЖНО: оставляем белое поле вокруг QR для корректного сканирования */
+.qr-ticket-image img{
+  width:min(88vw,320px);
+  height:auto;
+  display:block;
+  margin:0 auto 1rem;
+  background:#ffffff;          /* белая подложка */
+  padding:12px;                /* "quiet zone" вокруг кода */
+  border-radius:12px;
+  border:1px solid var(--border);
+  box-shadow:0 6px 24px rgba(0,0,0,.35);
 }
 
-.qr-ticket-image img {
-    width: 320px;
-    height: auto;
-    margin: 0 auto 1.5rem;
-    display: block;
-    border-radius: 8px;
-    background: #ffffff;
+.qr-ticket-code{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:.75rem;
+  margin-bottom:1rem;
+}
+.qr-ticket-code-value{
+  font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+               "Liberation Mono","Courier New", monospace;
+  background:var(--bg-elev);
+  padding:.5rem 1rem;
+  border-radius:10px;
+  font-size:1.125rem;
+  letter-spacing:.04em;
+  border:1px solid var(--border);
 }
 
-.qr-ticket-code {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
+/* Кнопка в стиле темы (как .btn / .btn-primary) */
+.qr-ticket-button{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:.5rem;
+  padding:12px 16px;
+  border-radius:14px;
+  border:1px solid #2b3a51;
+  background:linear-gradient(180deg, rgba(78,161,255,.2), rgba(124,77,255,.15));
+  color:var(--text);
+  font-weight:600;
+  cursor:pointer;
+  text-decoration:none;
+}
+.qr-ticket-button:hover{ border-color:var(--accent); }
+.qr-ticket-button:active{ transform:translateY(1px); }
+.qr-ticket-button:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
 }
 
-.qr-ticket-code-value {
-    font-family: 'Courier New', Courier, monospace;
-    background: #f5f5f5;
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    font-size: 1.5rem;
+.qr-ticket-countdown{
+  font-size:1rem;
+  margin-bottom:1rem;
+  color:var(--muted);
 }
+.qr-ticket-countdown strong{ color:var(--accent); }
 
-.qr-ticket-button {
-    background: #0073aa;
-    color: #ffffff;
-    border: none;
-    padding: 0.6rem 1.2rem;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 1rem;
+.qr-ticket-email{ text-align:left; margin-top:1.25rem; }
+.qr-ticket-email-fields{
+  display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem;
 }
-
-.qr-ticket-button:hover,
-.qr-ticket-button:focus {
-    background: #005a87;
+.qr-ticket-email input[type="email"]{
+  flex:1 1 auto;
+  padding:.6rem;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--bg-elev);
+  color:var(--text);
 }
+.qr-ticket-email .qr-ticket-button{ flex:0 0 auto; white-space:nowrap; }
 
-.qr-ticket-countdown {
-    font-size: 1.1rem;
-    margin-bottom: 1.5rem;
+.qr-ticket-email-feedback{
+  margin-top:.5rem;
+  min-height:1.25rem;
+  color:var(--muted);
 }
+.qr-ticket-email-feedback.is-success{ color:var(--success); }
+.qr-ticket-email-feedback.is-error{ color:var(--danger); }
 
-.qr-ticket-email {
-    text-align: left;
-    margin-top: 2rem;
-}
-
-.qr-ticket-email-fields {
-    display: flex;
-    gap: 0.75rem;
-    margin-top: 0.5rem;
-}
-
-.qr-ticket-email input[type="email"] {
-    flex: 1;
-    padding: 0.6rem;
-    border: 1px solid #cccccc;
-    border-radius: 6px;
-}
-
-.qr-ticket-email-feedback {
-    margin-top: 0.75rem;
-    min-height: 1.5rem;
-}
-
-.qr-ticket-expired {
-    padding: 1.5rem;
-    background: #ffe9e9;
-    border: 1px solid #ff9f9f;
-    border-radius: 8px;
-    color: #b30000;
-    font-size: 1.2rem;
-    margin-bottom: 1.5rem;
+/* Состояние «истёк» */
+.qr-ticket-expired{
+  padding:1rem;
+  background:rgba(239,68,68,.12);           /* danger tint */
+  border:1px solid rgba(239,68,68,.35);
+  border-radius:12px;
+  color:var(--danger);
+  font-size:1.1rem;
+  margin-bottom:1rem;
 }
