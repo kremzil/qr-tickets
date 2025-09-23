@@ -66,6 +66,7 @@ class QRTickets_Admin {
         register_setting( 'qr_dpmk_settings_group', 'qr_dpmk_ticket_30_id', array( $this, 'sanitize_int' ) );
         register_setting( 'qr_dpmk_settings_group', 'qr_dpmk_ticket_60_id', array( $this, 'sanitize_int' ) );
         register_setting( 'qr_dpmk_settings_group', 'qr_dpmk_enable_delayless_with_device', array( $this, 'sanitize_checkbox' ) );
+        register_setting( 'qr_dpmk_settings_group', 'qr_dpmk_require_preflight', array( $this, 'sanitize_checkbox' ) );
         register_setting( 'qr_dpmk_settings_group', 'qr_dpmk_test_mode', array( $this, 'sanitize_checkbox' ) );
 
         add_settings_section(
@@ -169,6 +170,24 @@ class QRTickets_Admin {
         ?>
         <div class="wrap">
             <h1><?php esc_html_e( 'QR Tickets Settings', 'qr-tickets' ); ?></h1>
+            <?php
+            $test_mode         = (bool) get_option( 'qr_dpmk_test_mode', '' );
+            $require_preflight = (bool) get_option( 'qr_dpmk_require_preflight', '1' );
+
+            if ( $test_mode ) :
+                ?>
+                <div class="notice notice-warning">
+                    <p><strong><?php esc_html_e( 'TEST MODE: all tickets use stub responses.', 'qr-tickets' ); ?></strong></p>
+                </div>
+                <?php
+            elseif ( $require_preflight ) :
+                ?>
+                <div class="notice notice-info">
+                    <p><?php esc_html_e( 'DPMK availability is checked before payment. Purchases are blocked while the provider is unavailable.', 'qr-tickets' ); ?></p>
+                </div>
+                <?php
+            endif;
+            ?>
             <form method="post" action="options.php">
                 <?php
                     settings_fields( 'qr_tickets_settings_group' );
@@ -261,6 +280,14 @@ class QRTickets_Admin {
                     'option'      => 'qr_dpmk_enable_delayless_with_device',
                     'type'        => 'checkbox',
                     'description' => __( 'Send device QR code when it is passed to the checkout.', 'qr-tickets' ),
+                ),
+                array(
+                    'id'          => 'qr_dpmk_require_preflight',
+                    'label'       => __( 'Require provider availability before payment (block purchase if DPMK unavailable)', 'qr-tickets' ),
+                    'option'      => 'qr_dpmk_require_preflight',
+                    'type'        => 'checkbox',
+                    'default'     => '1',
+                    'description' => __( 'Block purchase when the provider is unavailable during the preflight check.', 'qr-tickets' ),
                 ),
                 array(
                     'id'          => 'qr_dpmk_test_mode',

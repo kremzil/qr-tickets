@@ -63,6 +63,15 @@ class QRTickets_DirectPay {
             $this->redirect_home();
         }
 
+        if ( $this->should_require_preflight() ) {
+            $preflight = $this->run_dpmk_preflight( $type );
+
+            if ( is_wp_error( $preflight ) ) {
+                $this->log_preflight_failure( $preflight );
+                $this->render_preflight_error_page( $preflight );
+            }
+        }
+
         $email     = isset( $_GET['email'] ) ? sanitize_email( wp_unslash( $_GET['email'] ) ) : '';
         $locale    = isset( $_GET['locale'] ) ? sanitize_text_field( wp_unslash( $_GET['locale'] ) ) : '';
         $city_id   = isset( $_GET['city_id'] ) ? sanitize_text_field( wp_unslash( $_GET['city_id'] ) ) : '';
@@ -202,7 +211,9 @@ class QRTickets_DirectPay {
         $order->add_order_note( sprintf( 'DirectPay fallback to order-pay URL: %s', $fallback_url ) );
         $order->save();
         $this->safe_redirect( $fallback_url );
-    }    public function render_shortcode( $atts ) {
+    }
+
+    public function render_shortcode( $atts ) {
         $atts = shortcode_atts(
             array(
                 'type'  => '30m',
@@ -262,6 +273,179 @@ class QRTickets_DirectPay {
         $key      = $this->type_map[ $type ];
 
         return isset( $settings[ $key ] ) ? absint( $settings[ $key ] ) : 0;
+    }
+
+
+    private function should_require_preflight() {
+        if ( ! class_exists( 'QRTickets_DPMK_Service' ) ) {
+            return false;
+        }
+
+        if ( QRTickets_DPMK_Service::is_test_mode() ) {
+            return false;
+        }
+
+        return (bool) get_option( 'qr_dpmk_require_preflight', '1' );
+    }
+
+    private function run_dpmk_preflight( $type ) {
+        $missing = array();
+
+        $base_url      = trim( (string) get_option( 'qr_dpmk_base_url', '' ) );
+        $client_id     = trim( (string) get_option( 'qr_dpmk_client_id', '' ) );
+        $client_secret = trim( (string) get_option( 'qr_dpmk_client_secret', '' ) );
+        $ticket_30     = absint( get_option( 'qr_dpmk_ticket_30_id', 0 ) );
+        $ticket_60     = absint( get_option( 'qr_dpmk_ticket_60_id', 0 ) );
+
+        if ( '' === $base_url ) {
+            $missing[] = 'base_url';
+        }
+
+        if ( '' === $client_id ) {
+            $missing[] = 'client_id';
+        }
+
+        if ( '' === $client_secret ) {
+            $missing[] = 'client_secret';
+        }
+
+        if ( ! $ticket_30 ) {
+            $missing[] = 'ticket_30_id';
+        }
+
+        if ( ! $ticket_60 ) {
+            $missing[] = 'ticket_60_id';
+        }
+
+        if ( $missing ) {
+            return new WP_Error(
+                'qr_dpmk_preflight_config',
+                $this->normalize_preflight_message( 'Missing configuration: ' . implode( ', ', $missing ) ),
+                array( 'type' => $type )
+            );
+        }
+
+        $ready = QRTickets_DPMK_Service::ensure_ready();
+
+        if ( empty( $ready['ok'] ) ) {
+            $message = isset( $ready['message'] ) ? $ready['message'] : __( 'Provider unavailable.', 'qr-tickets' );
+
+            return new WP_Error(
+                'qr_dpmk_preflight_unavailable',
+                $this->normalize_preflight_message( $message ),
+                array( 'type' => $type )
+            );
+        }
+
+        $provider_ticket_id = QRTickets_DPMK_Service::map_ticket_id( $type );
+
+        if ( ! $provider_ticket_id ) {
+            return new WP_Error(
+                'qr_dpmk_preflight_missing_mapping',
+                $this->normalize_preflight_message( sprintf( 'Ticket ID mapping missing for type %s.', $type ) ),
+                array( 'type' => $type )
+            );
+        }
+
+        $client   = new QRTickets_DPMK_Client();
+        $response = $client->get( '/api/ticket' );
+
+        if ( empty( $response['ok'] ) ) {
+            $error_message = $response['error'] ? $response['error'] : ( $response['code'] ? 'HTTP ' . $response['code'] : 'Unknown error' );
+
+            return new WP_Error(
+                'qr_dpmk_preflight_request_failed',
+                $this->normalize_preflight_message( $error_message ),
+                array( 'type' => $type )
+            );
+        }
+
+        $items = array();
+
+        if ( isset( $response['body']['data'] ) && is_array( $response['body']['data'] ) ) {
+            $items = $response['body']['data'];
+        } elseif ( is_array( $response['body'] ) ) {
+            $items = $response['body'];
+        }
+
+        $found = false;
+        $provider_ticket_id = (int) $provider_ticket_id;
+
+        foreach ( $items as $item ) {
+            if ( ! is_array( $item ) ) {
+                continue;
+            }
+
+            $ticket_id = isset( $item['ticket_id'] ) ? (int) $item['ticket_id'] : 0;
+
+            if ( $ticket_id === $provider_ticket_id ) {
+                $found = true;
+                break;
+            }
+        }
+
+        if ( ! $found ) {
+            return new WP_Error(
+                'qr_dpmk_preflight_ticket_missing',
+                $this->normalize_preflight_message( sprintf( 'Ticket %d not reported by provider.', $provider_ticket_id ) ),
+                array( 'type' => $type )
+            );
+        }
+
+        return true;
+    }
+
+    private function log_preflight_failure( WP_Error $error ) {
+        $detail = $this->normalize_preflight_message( $error->get_error_message() );
+        $data   = $error->get_error_data();
+        $type   = is_array( $data ) && isset( $data['type'] ) ? (string) $data['type'] : '';
+        $prefix = $type ? sprintf( ' type=%s', $type ) : '';
+        $message = sprintf( 'DPMK preflight failed%s: %s', $prefix, $detail ? $detail : $error->get_error_code() );
+
+        if ( function_exists( 'wc_get_logger' ) ) {
+            wc_get_logger()->error( $message, array( 'source' => 'qr-tickets' ) );
+        } else {
+            error_log( $message );
+        }
+    }
+
+    private function render_preflight_error_page( WP_Error $error ) {
+        status_header( 503 );
+        nocache_headers();
+
+        $title    = __( 'Purchase temporarily unavailable', 'qr-tickets' );
+        $subtitle = __( 'Ticket provider is unavailable. Please try again later.', 'qr-tickets' );
+        $detail   = $this->normalize_preflight_message( $error->get_error_message() );
+
+        $html  = '<div class="qr-ticket-error-page">';
+        $html .= '<h1>' . esc_html( $title ) . '</h1>';
+        $html .= '<p class="qr-ticket-error-subtitle">' . esc_html( $subtitle ) . '</p>';
+
+        if ( $detail ) {
+            $html .= '<p class="qr-ticket-error-detail"><small>' . esc_html( $detail ) . '</small></p>';
+        }
+
+        $html .= '<p><button type="button" class="qr-ticket-error-back" onclick="history.back();return false;">' . esc_html__( 'Back', 'qr-tickets' ) . '</button></p>';
+        $html .= '</div>';
+
+        wp_die( $html, $title, array( 'response' => 503 ) );
+    }
+
+    private function normalize_preflight_message( $message ) {
+        if ( ! is_scalar( $message ) ) {
+            return '';
+        }
+
+        $message = trim( (string) $message );
+        $message = str_replace( array( chr( 13 ), chr( 10 ) ), ' ', $message );
+
+        if ( function_exists( 'mb_substr' ) ) {
+            $message = mb_substr( $message, 0, 180 );
+        } else {
+            $message = substr( $message, 0, 180 );
+        }
+
+        return $message;
     }
 
     private function redirect_home() {
