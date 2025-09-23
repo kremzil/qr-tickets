@@ -59,7 +59,11 @@ class QRTickets_Issuer {
         $order->update_meta_data( self::META_TICKET_ID, $ticket_id );
         $order->save();
 
-        $this->notify_municipality( $order, $ticket_id, $type, $email );
+        $sync_status = QRTickets_DPMK_Service::maybe_sync_ticket( $ticket_id, $order, $type );
+
+        if ( 'stub' === $sync_status ) {
+            $this->notify_municipality( $order, $ticket_id, $type, $email );
+        }
     }
 
     public function redirect_to_ticket( $order_id ) {
@@ -236,6 +240,7 @@ class QRTickets_Issuer {
 
         update_post_meta( $ticket_id, '_qr_code', $code );
         update_post_meta( $ticket_id, '_type', $type );
+        update_post_meta( $ticket_id, '_qr_ticket_type', $type );
         update_post_meta( $ticket_id, '_valid_from', $valid_from );
         update_post_meta( $ticket_id, '_valid_to', $valid_to );
         update_post_meta( $ticket_id, '_status', 'active' );
@@ -244,6 +249,8 @@ class QRTickets_Issuer {
         update_post_meta( $ticket_id, '_email', $email );
         update_post_meta( $ticket_id, '_amount_cents', $amount_cents );
         update_post_meta( $ticket_id, '_currency', $currency );
+        update_post_meta( $ticket_id, '_provider_attempts', 0 );
+        update_post_meta( $ticket_id, '_sync_status', 'pending' );
 
         $qr_attachment = $this->generate_qr_attachment( $ticket_id, $code );
 
@@ -333,7 +340,7 @@ class QRTickets_Issuer {
     }
 
     private function request_qr_png( $code ) {
-        $api_url  = add_query_arg(
+        $api_url = add_query_arg(
             array(
                 'size' => '512x512',
                 'data' => $code,

@@ -52,8 +52,8 @@ class QRTickets_Cron {
                 'meta_query'     => array(
                     'relation' => 'AND',
                     array(
-                        'key'     => '_status',
-                        'value'   => 'active',
+                        'key'   => '_status',
+                        'value' => 'active',
                     ),
                     array(
                         'key'     => '_valid_to',
@@ -66,12 +66,61 @@ class QRTickets_Cron {
             )
         );
 
+        if ( ! empty( $query->posts ) ) {
+            foreach ( $query->posts as $ticket_id ) {
+                update_post_meta( $ticket_id, '_status', 'expired' );
+            }
+        }
+
+        $this->retry_failed_dpmk_syncs();
+    }
+
+    private function retry_failed_dpmk_syncs() {
+        if ( QRTickets_DPMK_Service::is_test_mode() ) {
+            return;
+        }
+
+        $client = new QRTickets_DPMK_Client();
+
+        if ( ! $client->is_configured() ) {
+            return;
+        }
+
+        $last_run = (int) get_option( 'qr_tickets_dpmk_retry_last', 0 );
+
+        if ( ( time() - $last_run ) < 300 ) {
+            return;
+        }
+
+        update_option( 'qr_tickets_dpmk_retry_last', time(), false );
+
+        $query = new WP_Query(
+            array(
+                'post_type'      => 'ticket',
+                'post_status'    => 'publish',
+                'posts_per_page' => 10,
+                'fields'         => 'ids',
+                'meta_query'     => array(
+                    array(
+                        'key'   => '_sync_status',
+                        'value' => 'failed',
+                    ),
+                    array(
+                        'key'     => '_provider_attempts',
+                        'value'   => 5,
+                        'compare' => '<',
+                        'type'    => 'NUMERIC',
+                    ),
+                ),
+            )
+        );
+
         if ( empty( $query->posts ) ) {
             return;
         }
 
         foreach ( $query->posts as $ticket_id ) {
-            update_post_meta( $ticket_id, '_status', 'expired' );
+            QRTickets_DPMK_Service::retry_ticket( $ticket_id );
         }
     }
 }

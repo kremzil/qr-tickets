@@ -63,10 +63,11 @@ class QRTickets_DirectPay {
             $this->redirect_home();
         }
 
-        $email    = isset( $_GET['email'] ) ? sanitize_email( wp_unslash( $_GET['email'] ) ) : '';
-        $locale   = isset( $_GET['locale'] ) ? sanitize_text_field( wp_unslash( $_GET['locale'] ) ) : '';
-        $city_id  = isset( $_GET['city_id'] ) ? sanitize_text_field( wp_unslash( $_GET['city_id'] ) ) : '';
-        $route_id = isset( $_GET['route_id'] ) ? sanitize_text_field( wp_unslash( $_GET['route_id'] ) ) : '';
+        $email     = isset( $_GET['email'] ) ? sanitize_email( wp_unslash( $_GET['email'] ) ) : '';
+        $locale    = isset( $_GET['locale'] ) ? sanitize_text_field( wp_unslash( $_GET['locale'] ) ) : '';
+        $city_id   = isset( $_GET['city_id'] ) ? sanitize_text_field( wp_unslash( $_GET['city_id'] ) ) : '';
+        $route_id  = isset( $_GET['route_id'] ) ? sanitize_text_field( wp_unslash( $_GET['route_id'] ) ) : '';
+        $device_qr = isset( $_GET['qrcode'] ) ? sanitize_text_field( wp_unslash( $_GET['qrcode'] ) ) : '';
 
         $current_user  = is_user_logged_in() ? wp_get_current_user() : null;
         $user_id       = 0;
@@ -143,6 +144,10 @@ class QRTickets_DirectPay {
             $order->update_meta_data( '_qr_route_id', $route_id );
         }
 
+        if ( $device_qr ) {
+            $order->update_meta_data( '_qr_device_qr', $device_qr );
+        }
+
         $order->calculate_totals();
 
         if ( ! function_exists( 'WC' ) || ! WC()->payment_gateways() ) {
@@ -197,9 +202,7 @@ class QRTickets_DirectPay {
         $order->add_order_note( sprintf( 'DirectPay fallback to order-pay URL: %s', $fallback_url ) );
         $order->save();
         $this->safe_redirect( $fallback_url );
-    }
-
-    public function render_shortcode( $atts ) {
+    }    public function render_shortcode( $atts ) {
         $atts = shortcode_atts(
             array(
                 'type'  => '30m',

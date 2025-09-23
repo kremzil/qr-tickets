@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 /**
  * Plugin Name: QR Tickets
  * Description: QR Tickets plugin to manage ticket custom post types and settings.
