@@ -18,6 +18,8 @@ class QRTickets_Loader {
 
     private $cron;
 
+    private $account;
+
     public function __construct() {
         $this->cpt       = new QRTickets_CPT();
         $this->admin     = new QRTickets_Admin();
@@ -25,6 +27,7 @@ class QRTickets_Loader {
         $this->issuer    = class_exists( 'QRTickets_Issuer' ) ? new QRTickets_Issuer() : null;
         $this->template  = class_exists( 'QRTickets_Template' ) ? new QRTickets_Template() : null;
         $this->cron      = class_exists( 'QRTickets_Cron' ) ? new QRTickets_Cron() : null;
+        $this->account   = class_exists( 'QRTickets_Account' ) ? new QRTickets_Account() : null;
     }
 
     public function init() {
@@ -40,6 +43,10 @@ class QRTickets_Loader {
 
         if ( $this->template ) {
             $this->template->register();
+        }
+
+        if ( $this->account ) {
+            $this->account->register();
         }
 
         if ( $this->cron ) {

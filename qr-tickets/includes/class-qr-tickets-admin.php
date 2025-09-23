@@ -8,27 +8,10 @@ class QRTickets_Admin {
 
     private $option_name = 'qr_tickets_settings';
 
-    private $fields = array();
+    private $fields = null;
 
     public function __construct() {
-        $this->fields = array(
-            'product_30m_id' => array(
-                'label' => __( 'Product 30m ID', 'qr-tickets' ),
-                'type'  => 'number',
-            ),
-            'product_60m_id' => array(
-                'label' => __( 'Product 60m ID', 'qr-tickets' ),
-                'type'  => 'number',
-            ),
-            'redirect_after_success' => array(
-                'label' => __( 'Redirect After Success', 'qr-tickets' ),
-                'type'  => 'text',
-            ),
-            'muni_stub_url' => array(
-                'label' => __( 'Muni Stub URL', 'qr-tickets' ),
-                'type'  => 'url',
-            ),
-        );
+        // Fields are initialized lazily in get_fields().
     }
 
     public function register() {
@@ -57,7 +40,7 @@ class QRTickets_Admin {
             'qr_tickets'
         );
 
-        foreach ( $this->fields as $id => $field ) {
+        foreach ( $this->get_fields() as $id => $field ) {
             add_settings_field(
                 $id,
                 $field['label'],
@@ -75,7 +58,7 @@ class QRTickets_Admin {
     public function sanitize( $input ) {
         $sanitized = array();
 
-        foreach ( $this->fields as $id => $field ) {
+        foreach ( $this->get_fields() as $id => $field ) {
             $value = isset( $input[ $id ] ) ? $input[ $id ] : '';
 
             switch ( $id ) {
@@ -142,5 +125,30 @@ class QRTickets_Admin {
             array(),
             QR_TICKETS_VERSION
         );
+    }
+
+    private function get_fields() {
+        if ( null === $this->fields ) {
+            $this->fields = array(
+                'product_30m_id' => array(
+                    'label' => __( 'Product 30m ID', 'qr-tickets' ),
+                    'type'  => 'number',
+                ),
+                'product_60m_id' => array(
+                    'label' => __( 'Product 60m ID', 'qr-tickets' ),
+                    'type'  => 'number',
+                ),
+                'redirect_after_success' => array(
+                    'label' => __( 'Redirect After Success', 'qr-tickets' ),
+                    'type'  => 'text',
+                ),
+                'muni_stub_url' => array(
+                    'label' => __( 'Muni Stub URL', 'qr-tickets' ),
+                    'type'  => 'url',
+                ),
+            );
+        }
+
+        return $this->fields;
     }
 }

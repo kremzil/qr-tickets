@@ -36,11 +36,11 @@ class QRTickets_Issuer {
         list( $email, $email_source ) = $this->determine_email( $order );
 
         $current_email = sanitize_email( $order->get_billing_email() );
-        $email_was_set = false;
+        $email_changed = false;
 
         if ( $email && $email !== $current_email ) {
             $order->set_billing_email( $email );
-            $email_was_set = true;
+            $email_changed = true;
         }
 
         $order->add_order_note( sprintf( 'Email source: %s', $email_source ) );
@@ -48,7 +48,7 @@ class QRTickets_Issuer {
         $ticket_id = $this->create_ticket_post( $order, $type, $email );
 
         if ( ! $ticket_id ) {
-            if ( $email_was_set ) {
+            if ( $email_changed ) {
                 $order->save();
             }
 
@@ -117,7 +117,7 @@ class QRTickets_Issuer {
             }
         }
 
-        $response_meta = $order->get_meta( '_barion_response', true );
+        $response_meta  = $order->get_meta( '_barion_response', true );
         $response_email = $this->extract_email_from_value( $response_meta );
 
         if ( $response_email ) {
@@ -125,15 +125,16 @@ class QRTickets_Issuer {
         }
 
         foreach ( $order->get_meta_data() as $meta ) {
-            $key = isset( $meta->key ) ? $meta->key : '';
+            $value = isset( $meta->value ) ? $meta->value : null;
 
-            if ( $key && false === stripos( $key, 'email' ) ) {
+            if ( null === $value ) {
                 continue;
             }
 
-            $candidate = $this->extract_email_from_value( $meta->value );
+            $candidate = $this->extract_email_from_value( $value );
 
             if ( $candidate ) {
+                $key = isset( $meta->key ) ? $meta->key : '';
                 return array( $candidate, $key ? 'meta:' . $key : 'meta' );
             }
         }
@@ -152,21 +153,13 @@ class QRTickets_Issuer {
             $decoded = json_decode( $value, true );
 
             if ( json_last_error() === JSON_ERROR_NONE && is_array( $decoded ) ) {
-                $found = $this->search_email_in_array( $decoded );
-
-                if ( $found ) {
-                    return $found;
-                }
+                return $this->search_email_in_array( $decoded );
             }
 
             return '';
         }
 
-        if ( is_array( $value ) ) {
-            return $this->search_email_in_array( $value );
-        }
-
-        if ( is_object( $value ) ) {
+        if ( is_array( $value ) || is_object( $value ) ) {
             return $this->search_email_in_array( (array) $value );
         }
 
@@ -200,6 +193,16 @@ class QRTickets_Issuer {
             return 0;
         }
 
+        $user_id = (int) $order->get_customer_id();
+
+        if ( ! $email && $user_id ) {
+            $user = get_user_by( 'id', $user_id );
+
+            if ( $user instanceof WP_User ) {
+                $email = sanitize_email( $user->user_email );
+            }
+        }
+
         $valid_from = time();
         $duration   = '60m' === $type ? 60 * MINUTE_IN_SECONDS : 30 * MINUTE_IN_SECONDS;
         $valid_to   = $valid_from + $duration;
@@ -222,7 +225,7 @@ class QRTickets_Issuer {
                 'post_type'   => 'ticket',
                 'post_status' => 'publish',
                 'post_title'  => sprintf( 'Ticket %s', $code ),
-                'post_author' => 0,
+                'post_author' => $user_id,
             ),
             true
         );
@@ -237,6 +240,7 @@ class QRTickets_Issuer {
         update_post_meta( $ticket_id, '_valid_to', $valid_to );
         update_post_meta( $ticket_id, '_status', 'active' );
         update_post_meta( $ticket_id, '_order_id', $order->get_id() );
+        update_post_meta( $ticket_id, '_user_id', $user_id );
         update_post_meta( $ticket_id, '_email', $email );
         update_post_meta( $ticket_id, '_amount_cents', $amount_cents );
         update_post_meta( $ticket_id, '_currency', $currency );
@@ -303,8 +307,7 @@ class QRTickets_Issuer {
         }
 
         $file_path = $upload['file'];
-
-        $filetype = wp_check_filetype( $file_name, null );
+        $filetype  = wp_check_filetype( $file_name, null );
 
         $attachment = array(
             'post_mime_type' => $filetype['type'],
@@ -337,6 +340,7 @@ class QRTickets_Issuer {
             ),
             'https://api.qrserver.com/v1/create-qr-code/'
         );
+
         $response = wp_remote_get(
             $api_url,
             array(
@@ -348,9 +352,9 @@ class QRTickets_Issuer {
             return '';
         }
 
-        $code = wp_remote_retrieve_response_code( $response );
+        $status_code = wp_remote_retrieve_response_code( $response );
 
-        if ( 200 !== $code ) {
+        if ( 200 !== $status_code ) {
             return '';
         }
 
@@ -362,10 +366,10 @@ class QRTickets_Issuer {
             return '';
         }
 
-        $size   = 512;
-        $image  = imagecreatetruecolor( $size, $size );
-        $white  = imagecolorallocate( $image, 255, 255, 255 );
-        $black  = imagecolorallocate( $image, 0, 0, 0 );
+        $size  = 512;
+        $image = imagecreatetruecolor( $size, $size );
+        $white = imagecolorallocate( $image, 255, 255, 255 );
+        $black = imagecolorallocate( $image, 0, 0, 0 );
         imagefill( $image, 0, 0, $white );
 
         $hash = md5( $code );
@@ -433,16 +437,10 @@ class QRTickets_Issuer {
             return;
         }
 
-        $status = wp_remote_retrieve_response_code( $response );
-        $body   = wp_remote_retrieve_body( $response );
+        $status_code = wp_remote_retrieve_response_code( $response );
+        $body        = wp_remote_retrieve_body( $response );
+        $body        = function_exists( 'mb_substr' ) ? mb_substr( $body, 0, 200 ) : substr( $body, 0, 200 );
 
-        if ( function_exists( 'mb_substr' ) ) {
-            $body = mb_substr( $body, 0, 200 );
-        } else {
-            $body = substr( $body, 0, 200 );
-        }
-
-        $order->add_order_note( sprintf( 'Municipality stub response: HTTP %d %s', $status, $body ) );
+        $order->add_order_note( sprintf( 'Municipality stub response: HTTP %d %s', $status_code, $body ) );
     }
 }
-

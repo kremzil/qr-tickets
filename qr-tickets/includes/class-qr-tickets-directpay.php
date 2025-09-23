@@ -68,7 +68,25 @@ class QRTickets_DirectPay {
         $city_id  = isset( $_GET['city_id'] ) ? sanitize_text_field( wp_unslash( $_GET['city_id'] ) ) : '';
         $route_id = isset( $_GET['route_id'] ) ? sanitize_text_field( wp_unslash( $_GET['route_id'] ) ) : '';
 
-        $order = wc_create_order( array( 'status' => 'pending' ) );
+        $current_user  = is_user_logged_in() ? wp_get_current_user() : null;
+        $user_id       = 0;
+        $account_email = '';
+
+        if ( $current_user instanceof WP_User && $current_user->exists() ) {
+            $user_id       = (int) $current_user->ID;
+            $account_email = sanitize_email( $current_user->user_email );
+        }
+
+        if ( $account_email ) {
+            $email = $account_email;
+        }
+
+        $order = wc_create_order(
+            array(
+                'status'      => 'pending',
+                'customer_id' => $user_id,
+            )
+        );
 
         if ( is_wp_error( $order ) ) {
             $this->redirect_checkout_with_error( __( 'Unable to create order.', 'qr-tickets' ) );
@@ -79,7 +97,11 @@ class QRTickets_DirectPay {
         }
 
         if ( method_exists( $order, 'set_customer_id' ) ) {
-            $order->set_customer_id( 0 );
+            $order->set_customer_id( $user_id );
+        }
+
+        if ( $user_id ) {
+            $order->update_meta_data( '_customer_user', $user_id );
         }
 
         if ( method_exists( $order, 'set_customer_ip_address' ) && class_exists( 'WC_Geolocation' ) ) {
@@ -92,10 +114,11 @@ class QRTickets_DirectPay {
 
         $order->add_order_note(
             sprintf(
-                'DirectPay init: type=%s, product_id=%d, email=%s',
+                'DirectPay init: type=%s, product_id=%d, email=%s, user_id=%s',
                 $type,
                 $product_id,
-                $email ? $email : 'n/a'
+                $email ? $email : 'n/a',
+                $user_id ? $user_id : 'none'
             )
         );
 
