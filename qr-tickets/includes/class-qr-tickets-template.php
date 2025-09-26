@@ -30,6 +30,9 @@ class QRTickets_Template {
             return;
         }
 
+        $ticket_id      = get_queried_object_id();
+        $ticket_payload = $this->build_ticket_payload( $ticket_id );
+
         wp_enqueue_style(
             'qr-tickets-ticket',
             plugins_url( 'assets/qr-ticket.css', QR_TICKETS_PLUGIN_FILE ),
@@ -45,14 +48,36 @@ class QRTickets_Template {
             true
         );
 
+        wp_enqueue_script(
+            'qr-tickets-ticket-save',
+            plugins_url( 'assets/js/ticket-save.js', QR_TICKETS_PLUGIN_FILE ),
+            array( 'qr-tickets-ticket' ),
+            QR_TICKETS_VERSION,
+            true
+        );
+
         wp_localize_script(
             'qr-tickets-ticket',
             'QRTicketsTicket',
             array(
-                'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-                'nonce'   => wp_create_nonce( 'qr_ticket_send_email' ),
+                'ajaxUrl'     => admin_url( 'admin-ajax.php' ),
+                'nonce'       => wp_create_nonce( 'qr_ticket_send_email' ),
                 'copySuccess' => __( 'Copied', 'qr-tickets' ),
                 'copyError'   => __( 'Copy failed', 'qr-tickets' ),
+                'ticket'      => $ticket_payload,
+                'i18n'        => array(
+                    'savePrompt'      => __( 'Save ticket on this device', 'qr-tickets' ),
+                    'saveSuccess'     => __( 'Ticket saved for offline use.', 'qr-tickets' ),
+                    'saveError'       => __( 'Unable to save ticket. Please try again.', 'qr-tickets' ),
+                    'saving'          => __( 'Saving...', 'qr-tickets' ),
+                    'alreadySaved'    => __( 'Ticket already saved on this device.', 'qr-tickets' ),
+                    'installPrompt'   => __( 'Install TicketKE', 'qr-tickets' ),
+                    'installError'    => __( 'Unable to start installation.', 'qr-tickets' ),
+                    'storageMissing'  => __( 'Offline storage is not supported in this browser.', 'qr-tickets' ),
+                ),
+                'cache'       => array(
+                    'qr' => 'qr-tickets-qr',
+                ),
             )
         );
     }
@@ -115,5 +140,60 @@ class QRTickets_Template {
         }
 
         wp_send_json_success( array( 'message' => __( 'Email sent.', 'qr-tickets' ) ) );
+    }
+
+    private function build_ticket_payload( $ticket_id ) {
+        if ( ! $ticket_id ) {
+            return array();
+        }
+
+        $ticket = get_post( $ticket_id );
+
+        if ( ! $ticket || 'ticket' !== $ticket->post_type ) {
+            return array();
+        }
+
+        $code        = (string) get_post_meta( $ticket_id, '_qr_code', true );
+        $type        = (string) get_post_meta( $ticket_id, '_type', true );
+        $valid_from  = (int) get_post_meta( $ticket_id, '_valid_from', true );
+        $valid_to    = (int) get_post_meta( $ticket_id, '_valid_to', true );
+        $status      = (string) get_post_meta( $ticket_id, '_status', true );
+        $email       = (string) get_post_meta( $ticket_id, '_email', true );
+        $sync_status = (string) get_post_meta( $ticket_id, '_sync_status', true );
+        $sync_error  = (string) get_post_meta( $ticket_id, '_provider_last_error', true );
+        $qr_url      = (string) get_post_meta( $ticket_id, '_qr_png_url', true );
+        $provider_qr = (string) get_post_meta( $ticket_id, '_provider_qr', true );
+
+        if ( $provider_qr ) {
+            if ( ( function_exists( 'str_starts_with' ) && str_starts_with( $provider_qr, 'data:' ) ) || 0 === strpos( $provider_qr, 'data:' ) ) {
+                $qr_url = $provider_qr;
+            } else {
+                $qr_url = 'data:image/png;base64,' . $provider_qr;
+            }
+        }
+
+        $structured = array(
+            'id'                  => $ticket_id,
+            'title'               => get_the_title( $ticket_id ),
+            'permalink'           => get_permalink( $ticket_id ),
+            'code'                => $code,
+            'type'                => $type,
+            'status'              => $status,
+            'valid_from'          => $valid_from,
+            'valid_to'            => $valid_to,
+            'email'               => $email,
+            'sync_status'         => $sync_status,
+            'provider_last_error' => $sync_error,
+        );
+
+        if ( ! empty( $ticket->post_content ) ) {
+            $structured['content'] = apply_filters( 'the_content', $ticket->post_content );
+        }
+
+        return array(
+            'id'        => $ticket_id,
+            'structured' => $structured,
+            'qrUrl'     => $qr_url,
+        );
     }
 }

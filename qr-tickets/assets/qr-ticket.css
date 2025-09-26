@@ -249,4 +249,84 @@
 .qr-tickets-table .actions .btn-xs{
   width:100%;
   justify-content:center;
+}
+.qr-ticket-save{
+  margin-top:1.5rem;
+  padding:1rem;
+  border:1px dashed var(--border);
+  border-radius:14px;
+  background:rgba(255,255,255,.04);
+  text-align:left;
+}
+.qr-ticket-save[hidden]{ display:none !important; }
+.qr-ticket-save-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.5rem;
+  margin-bottom:.5rem;
+}
+.qr-ticket-save-description{
+  margin:0;
+  font-size:.95rem;
+  color:var(--muted);
+}
+.qr-ticket-save-feedback{
+  margin-top:.5rem;
+  min-height:1.1rem;
+  font-size:.9rem;
+  color:var(--muted);
+}
+.qr-ticket-save-feedback.is-success{ color:var(--success); }
+.qr-ticket-save-feedback.is-error{ color:var(--danger); }
+.qr-ticket-install-button{
+  background:linear-gradient(180deg, rgba(124,77,255,.2), rgba(78,161,255,.15));
+}
+.qr-ticket-active{
+  position:fixed;
+  bottom:20px;
+  right:20px;
+  max-width:260px;
+  padding:16px;
+  border-radius:14px;
+  border:1px solid var(--border);
+  background:var(--bg-elev);
+  box-shadow:var(--shadow);
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  z-index:1000;
+}
+.qr-ticket-active[hidden]{ display:none !important; }
+.qr-ticket-active__title{
+  font-size:1rem;
+  color:var(--text);
+}
+.qr-ticket-active__status{
+  font-size:.85rem;
+  font-weight:600;
+  color:var(--accent);
+}
+.qr-ticket-active__meta{
+  font-size:.85rem;
+  color:var(--muted);
+}
+.qr-ticket-active__action{
+  display:inline-flex;
+  justify-content:center;
+  align-items:center;
+  padding:8px 12px;
+  border-radius:10px;
+  background:linear-gradient(180deg, rgba(78,161,255,.2), rgba(124,77,255,.15));
+  color:var(--text);
+  text-decoration:none;
+  font-weight:600;
+}
+.qr-ticket-active__action:hover{
+  border:1px solid var(--accent);
+}
+@media (max-width:600px){
+  .qr-ticket-active{
+    left:20px;
+    right:20px;
+  }
 }
