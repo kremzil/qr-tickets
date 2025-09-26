@@ -167,35 +167,6 @@ $valid_until_label = $valid_to ? wp_date( 'H:i', $valid_to, $timezone ) : '';
     <?php endif; ?>
 
 
-
-        <div class="qr-ticket-save" data-ticket-save>
-
-            <div class="qr-ticket-save-actions">
-
-                <button type="button" class="qr-ticket-button qr-ticket-save-button" data-ticket-save-trigger>
-
-                    <?php esc_html_e( 'Save ticket on this device', 'qr-tickets' ); ?>
-
-                </button>
-
-                <button type="button" class="qr-ticket-button qr-ticket-install-button" data-ticket-install hidden>
-
-                    <?php esc_html_e( 'Install TicketKE', 'qr-tickets' ); ?>
-
-                </button>
-
-            </div>
-
-            <p class="qr-ticket-save-description"><?php esc_html_e( 'Keep this ticket available offline on your device.', 'qr-tickets' ); ?></p>
-
-            <p class="qr-ticket-save-feedback" data-ticket-save-feedback aria-live="polite"></p>
-
-        </div>
-
-
-
-    <?php if ( empty( $email ) && ! $is_expired && ! $has_sync_error ) : ?>
-
         <div class="qr-ticket-email">
 
             <form id="qr-ticket-email-form">
@@ -218,8 +189,7 @@ $valid_until_label = $valid_to ? wp_date( 'H:i', $valid_to, $timezone ) : '';
 
         </div>
 
-    <?php endif; ?>
-
+  
 </div>
 
 <?php
